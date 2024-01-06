@@ -7,6 +7,7 @@ import os
 import pickle
 import random
 import shutil
+import time
 import urllib.request
 import zlib
 
@@ -174,25 +175,19 @@ def today():
     return datetime.datetime.now()
 
 
-ORDERED_NUMBER = [0]
+ORDERED_NUMBER = [random.randint(0, 99)]
+
+
+def huella_num() -> str:
+    ns = time.time_ns()
+    if ns % 100 == 0:
+        ns //= 100
+    ORDERED_NUMBER[0] += 1
+    txt = "%d%d" % (ns, ORDERED_NUMBER[0])
+    return txt
 
 
 def huella() -> str:
-    d = datetime.datetime.now()
-    ORDERED_NUMBER[0] += 1
-    txt = "%2d%02d%02d%02d%02d%02d%06d%04d" % (
-        d.year % 100,
-        d.month,
-        d.day,
-        d.hour,
-        d.minute,
-        d.second,
-        d.microsecond,
-        ORDERED_NUMBER[0],
-    )
-    if len(txt) % 2 == 1:
-        txt += str(random.randint(0, 9))
-
     def conv(num100: int) -> str:
         if num100 < 9:
             return chr(49 + num100)
@@ -202,6 +197,9 @@ def huella() -> str:
             return chr(97 - 35 + num100)
         return chr(122) + conv(num100 - 61)
 
+    txt = huella_num()
+    if len(txt) % 2 == 1:
+        txt += str(random.randint(0, 9))
     li = []
     for n in range(len(txt) // 2):
         num = int(txt[n * 2: n * 2 + 2])
@@ -314,6 +312,10 @@ def primera_mayuscula(txt):
     return txt[0].upper() + txt[1:].lower() if len(txt) > 0 else ""
 
 
+def primeras_mayusculas(txt):
+    return " ".join([(x[0].upper() + x[1:]) if x else "" for x in txt.split(" ")])
+
+
 def ini2dic(file):
     dic_base = collections.OrderedDict()
 
@@ -345,7 +347,7 @@ def dic2ini(file, dic):
                 f.write("%s=%s\n" % (key, dic[k][key]))
 
 
-def ini_base2dic(file):
+def ini_base2dic(file, rfind_equal=False):
     dic = {}
 
     if os.path.isfile(file):
@@ -356,26 +358,7 @@ def ini_base2dic(file):
                 if linea.startswith("#"):
                     continue
                 if linea:
-                    n = linea.find("=")
-                    if n:
-                        key = linea[:n].strip()
-                        valor = linea[n + 1:].strip()
-                        dic[key] = valor
-
-    return dic
-
-def ini_base2dicr(file):
-    dic = {}
-
-    if os.path.isfile(file):
-
-        with open(file, "rt", encoding="utf-8", errors="ignore") as f:
-            for linea in f:
-                linea = linea.strip()
-                if linea.startswith("#"):
-                    continue
-                if linea:
-                    n = linea.rfind("=")
+                    n = linea.rfind("=") if rfind_equal else linea.find("=")
                     if n:
                         key = linea[:n].strip()
                         valor = linea[n + 1:].strip()

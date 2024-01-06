@@ -39,13 +39,17 @@ if is_linux:
     startfile = os.system
 else:
     if not sys.argv[0].endswith(".py"):
-        os.environ["QT_PLUGIN_PATH"] = os.path.join(current_dir, "extlibs", "PySide2", "plugins")
+        os.environ["QT_PLUGIN_PATH"] = os.path.join(
+            current_dir, "extlibs", "PySide2", "plugins"
+        )
         os.environ["QT_QPA_PLATFORM_PLUGIN_PATH"] = os.path.join(
             current_dir, "extlibs", "PySide2", "plugins", "platform"
         )
     startfile = os.startfile
 
-if not os.environ.get("PYTHONHTTPSVERIFY", "") and getattr(ssl, "_create_unverified_context", None):
+if not os.environ.get("PYTHONHTTPSVERIFY", "") and getattr(
+        ssl, "_create_unverified_context", None
+):
     ssl._create_default_https_context = getattr(ssl, "_create_unverified_context")
 
 configuration = None
@@ -79,7 +83,7 @@ dic_qcolors = None
 def relative_root(path):
     # Used only for titles/labels
     try:
-        path = os.path.abspath(path)
+        path = os.path.normpath(os.path.abspath(path))
         rel = os.path.relpath(path, folder_root)
         if not rel.startswith(".."):
             path = rel
@@ -90,7 +94,7 @@ def relative_root(path):
 
 
 BASE_VERSION = "B"  # Para el control de updates que necesitan reinstalar entero
-VERSION = "R 2.07a"
+VERSION = "R 2.10a"
 DEBUG = False
 DEBUG_ENGINES = False
 
@@ -101,7 +105,6 @@ if DEBUG:
 
 
     def pr(*x):
-
         lx = len(x) - 1
 
         for n, l in enumerate(x):

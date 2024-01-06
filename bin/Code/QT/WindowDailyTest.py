@@ -129,7 +129,7 @@ class WDailyTestBase(LCDialog.LCDialog):
         mt = self.configuration.tutor_default if self.engine is None else self.engine
 
         li_combo = [mt]
-        for name, key in self.configuration.comboMotoresMultiPV10():
+        for name, key in self.configuration.combo_engines_multipv10():
             li_combo.append((key, name))
 
         li_gen.append((_("Engine") + ":", li_combo))
@@ -168,7 +168,7 @@ class WDailyTestBase(LCDialog.LCDialog):
         li = self.ghistorico.recnosSeleccionados()
         if len(li) > 0:
             if QTUtil2.pregunta(self, _("Do you want to delete all selected records?")):
-                um = QTUtil2.unMomento(self)
+                um = QTUtil2.one_moment_please(self)
                 for row in li:
                     key = self.li_histo[row]
                     del self.historico[key]
@@ -194,10 +194,10 @@ class WDailyTestBase(LCDialog.LCDialog):
                         if "|" in linea:
                             linea = linea.split("|")[0]
                         if (
-                            linea[0].isalnum()
-                            and linea[-1].isdigit()
-                            and ((" w " in linea) or (" b " in linea))
-                            and linea.count("/") == 7
+                                linea[0].isalnum()
+                                and linea[-1].isdigit()
+                                and ((" w " in linea) or (" b " in linea))
+                                and linea.count("/") == 7
                         ):
                             li.append(linea)
             if len(li) >= self.pruebas:

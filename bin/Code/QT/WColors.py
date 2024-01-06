@@ -29,7 +29,7 @@ class WColors(LCDialog.LCDialog):
         self.dic_original = {key: QTUtil.qtColor(value) for key, value in dic.items()}
 
         path_personal = self.configuration.file_colors()
-        dic = Util.ini_base2dicr(path_personal)
+        dic = Util.ini_base2dic(path_personal, rfind_equal=True)
         self.dic_personal = {key: QTUtil.qtColor(value) for key, value in dic.items()}
 
         self.li_colors = self.read_colors_template()
@@ -92,6 +92,7 @@ class WColors(LCDialog.LCDialog):
             "Border when disable": _("Border when disable"),
             "Foreground when disable": _("Foreground when disable"),
             "Background when disable": _("Background when disable"),
+            "Analysis Bar": _("Analysis Bar")
         }
 
         o_columns = Columnas.ListaColumnas()
@@ -126,7 +127,7 @@ class WColors(LCDialog.LCDialog):
 
         self.register_grid(self.grid)
         self.grid.resizeColumnToContents(0)
-        self.restore_video(anchoDefecto=self.grid.anchoColumnas()+24, altoDefecto=QTUtil.altoEscritorio()*2//3)
+        self.restore_video(anchoDefecto=self.grid.anchoColumnas() + 24, altoDefecto=QTUtil.altoEscritorio() * 2 // 3)
 
         self.grid.gotop()
         for row, (is_head, key, value) in enumerate(self.li_colors):
@@ -142,7 +143,8 @@ class WColors(LCDialog.LCDialog):
             qcolor_previo = self.dic_personal.get(key)
             if qcolor_previo is None:
                 qcolor_previo = self.dic_original[key]
-            qcolor_nuevo = QtWidgets.QColorDialog.getColor(qcolor_previo, title=_("Choose a color"))
+            qcolor_nuevo = QtWidgets.QColorDialog.getColor(qcolor_previo, self, _("Choose a color"),
+                                                           QtWidgets.QColorDialog.ShowAlphaChannel | QtWidgets.QColorDialog.DontUseNativeDialog)
             if qcolor_nuevo.isValid():
                 if qcolor_previo.name() != qcolor_nuevo.name():
                     self.li_ctrl_z.append(["add", key, self.dic_personal.get(key)])
@@ -152,7 +154,9 @@ class WColors(LCDialog.LCDialog):
 
         elif col.key == "ORIGINAL":
             qcolor_previo = self.dic_original[key]
-            qcolor_nuevo = QtWidgets.QColorDialog.getColor(qcolor_previo, title=_("Choose a color"))
+            qcolor_nuevo = QtWidgets.QColorDialog.getColor(qcolor_previo, self, _("Choose a color"),
+                                                           QtWidgets.QColorDialog.ShowAlphaChannel | QtWidgets.QColorDialog.DontUseNativeDialog)
+
             if qcolor_nuevo.isValid():
                 color_original = qcolor_previo.name()
                 remove = qcolor_previo.name() == qcolor_nuevo.name()
@@ -208,7 +212,7 @@ class WColors(LCDialog.LCDialog):
         is_head, key, value = self.li_colors[row]
         if col == "NAME":
             def trans(x):
-                if _F(x) != x:
+                if Code.translations.is_key(x):
                     return _F(x)
                 if x in self.translation:
                     return self.translation[x]

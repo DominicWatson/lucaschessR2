@@ -86,7 +86,7 @@ def menu_tools_savemenu(procesador, dic_data=None):
     menu1.separador()
     menu1.opcion("polyglot", _("Polyglot book factory"), Iconos.FactoryPolyglot())
     menu1.separador()
-    menu1.opcion("polyglot_install", _("Install/remove polyglot books"), Iconos.Libros())
+    menu1.opcion("polyglot_install", _("Registered books"), Iconos.Libros())
     savemenu.separador()
 
     menu1 = savemenu.submenu(_("Engines"), Iconos.Engines())
@@ -153,9 +153,11 @@ def menuplay_savemenu(procesador, dic_data=None):
     savemenu.opcion(("free", None), _("Play against an engine"), Iconos.Libre())
     savemenu.separador()
 
-    # Principiantes ----------------------------------------------------------------------------------------
     menu1 = savemenu.submenu(_("Opponents for young players"), Iconos.RivalesMP())
     menuplay_youngs(menu1)
+
+    savemenu.separador()
+    savemenu.opcion(("human", None), _("Play human vs human"), Iconos.HumanHuman())
 
     return savemenu
 
@@ -184,6 +186,8 @@ def menu_compete_savemenu(procesador, dic_data=None):
     submenu.opcion(("lucaselo", 0), "%s (%d)" % (_("Lucas-Elo"), procesador.configuration.x_elo), Iconos.Elo())
     submenu.separador()
     submenu.opcion(("micelo", 0), "%s (%d)" % (_("Tourney-Elo"), procesador.configuration.x_michelo), Iconos.EloTimed())
+    submenu.separador()
+    submenu.opcion(("wicker", 0), "%s (%d)" % (_("The Wicker Park Tourney"), procesador.configuration.x_wicker), Iconos.Park())
     submenu.separador()
     fics = procesador.configuration.x_fics
     menuf = submenu.submenu("%s (%d)" % (_("Fics-Elo"), fics), Iconos.Fics())

@@ -1,7 +1,6 @@
 from PySide2 import QtCore, QtGui, QtWidgets
 
 import Code
-from Code.About import About
 from Code.CompetitionWithTutor import CompetitionWithTutor
 from Code.QT import Colocacion
 from Code.QT import Controles
@@ -127,7 +126,7 @@ def dame_categoria(w_parent, configuration, procesador):
         txt = _(
             "<br><b>The aim is to obtain the highest possible score</b> :<ul><li>The current point score is displayed in the title bar.</li><li>To obtain points it is necessary to win on different levels in different categories.</li><li>To overcome a level it is necessary to win against the engine with white and with black.</li><li>The categories are ranked in the order of the following table:</li><ul><li><b>Beginner</b> : 5</li><li><b>Amateur</b> : 10</li><li><b>Candidate Master</b> : 20</li><li><b>Master</b> : 40</li><li><b>International Master</b> : 80</li><li><b>Grandmaster</b> : 160</li></ul><li>The score for each game is calculated by multiplying the playing level with the score of the category.</li><li>The engines are divided into groups.</li><li>To be able to play with an opponent of a particular group a minimum point score is required. The required score is shown next to the group label.</li></ul>"
         )
-        About.info(w_parent, Code.lucas_chess, titulo, txt, ancho, Iconos.pmAyudaGR())
+        QTVarios.info(w_parent, Code.lucas_chess, titulo, txt, ancho, Iconos.pmAyudaGR())
         return None
 
     elif resp.startswith("MT_"):
@@ -148,7 +147,7 @@ class WDatos(QtWidgets.QDialog):
         self.setWindowIcon(Iconos.Datos())
         self.setWindowFlags(QtCore.Qt.Dialog | QtCore.Qt.WindowTitleHint)
 
-        tb = QTVarios.tbAcceptCancel(self)
+        tb = QTVarios.tb_accept_cancel(self)
 
         f = Controles.TipoLetra(puntos=12, peso=75)
         flb = Controles.TipoLetra(puntos=10)
@@ -271,7 +270,7 @@ class WNumEntrenamiento(QtWidgets.QDialog):
         self.setWindowTitle(titulo)
         self.setWindowIcon(Iconos.Datos())
 
-        tb = QTVarios.tbAcceptCancel(self)
+        tb = QTVarios.tb_accept_cancel(self)
 
         if pos is None:
             pos = 1  # random.randint( 1, to_sq )
@@ -279,7 +278,7 @@ class WNumEntrenamiento(QtWidgets.QDialog):
         if etiqueta is None:
             etiqueta = _("Training unit")
 
-        self.ed, lb = QTUtil2.spinBoxLB(self, pos, 1, to_sq, etiqueta=etiqueta, maxTam=60)
+        self.ed, lb = QTUtil2.spinbox_lb(self, pos, 1, to_sq, etiqueta=etiqueta, max_width=60)
         lb1 = Controles.LB(self, "/ %d" % to_sq)
 
         lyH = Colocacion.H().relleno().control(lb).control(self.ed).control(lb1).relleno().margen(15)

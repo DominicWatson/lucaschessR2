@@ -45,7 +45,6 @@ class WPanelDirector(LCDialog.LCDialog):
         extparam = "tabvisualscript1"
         LCDialog.LCDialog.__init__(self, board, titulo, icono, extparam)
 
-        self.must_save = False
         self.ant_foto = None
 
         self.guion = TabVisual.Guion(board, self)
@@ -151,20 +150,13 @@ class WPanelDirector(LCDialog.LCDialog):
             self.selectBanda.seleccionarNum(number)
 
     def grabar(self):
-        li = self.guion.guarda()
-        self.board.dbVisual_save(self.fenm2, li)
-        QTUtil2.mensajeTemporal(self, _("Saved"), 1.8)
-
-        self.must_save = False
-        # self.tb.set_action_visible(self.grabar, False)
-        self.tb.set_action_visible(self.cancelar, False)
-        self.tb.set_action_visible(self.terminar, True)
-
-        QTUtil2.mensajeTemporal(self, _("Saved"), 1.8)
+        if self.guion is not None:
+            li = self.guion.guarda()
+            self.board.dbVisual_save(self.fenm2, li)
+            QTUtil2.temporary_message(None, _("Saved"), 1.2)
 
     def recuperar(self):
         self.guion.recupera()
-        # self.ponNoGrabar()
         self.ant_foto = self.foto()
         self.refresh_guion()
 
@@ -492,8 +484,6 @@ class WPanelDirector(LCDialog.LCDialog):
 
     def refresh_guion(self):
         self.g_guion.refresh()
-        if self.must_save:
-            return
         nueva = self.foto()
         nv = len(nueva)
         if self.ant_foto is None or nv != len(self.ant_foto):
@@ -625,7 +615,6 @@ class WPanelDirector(LCDialog.LCDialog):
             self.grabar()
 
     def closeEvent(self, event):
-        self.test_siGrabar()
         self.cierraRecursos()
 
     def terminar(self):
@@ -638,7 +627,7 @@ class WPanelDirector(LCDialog.LCDialog):
     def portapapeles(self):
         self.board.save_as_img()
         txt = _("Clipboard")
-        QTUtil2.mensajeTemporal(self, _X(_("Saved to %1"), txt), 0.8)
+        QTUtil2.temporary_message(self, _X(_("Saved to %1"), txt), 0.8)
 
     def grabarFichero(self):
         dirSalvados = self.configuration.x_save_folder
@@ -646,7 +635,7 @@ class WPanelDirector(LCDialog.LCDialog):
         if resp:
             self.board.save_as_img(resp, "png")
             txt = resp
-            QTUtil2.mensajeTemporal(self, _X(_("Saved to %1"), txt), 0.8)
+            QTUtil2.temporary_message(self, _X(_("Saved to %1"), txt), 0.8)
             direc = os.path.dirname(resp)
             if direc != dirSalvados:
                 self.configuration.x_save_folder = direc
@@ -754,6 +743,7 @@ class WPanelDirector(LCDialog.LCDialog):
 
             self.save_video()
             self.guion.restoreBoard()
+            self.test_siGrabar()
             self.guion = None
 
     def actualizaBandas(self):
@@ -878,7 +868,7 @@ class WPanelDirector(LCDialog.LCDialog):
                 nada, tp, nid = lb_sel.id.split("_")
                 nid = int(nid)
                 if tp == TabVisual.TP_FLECHA:
-                    self.siGrabarInicio = self.must_save
+                    self.siGrabarInicio = True
                 self.datos_new = self.creaTarea(tp, nid, origin + origin, -1)
                 self.tp_new = tp
                 if tp in (TabVisual.TP_FLECHA, TabVisual.TP_MARCO):
@@ -915,6 +905,7 @@ class WPanelDirector(LCDialog.LCDialog):
                     nid = int(nid)
                     self.datos_new = self.creaTarea(tp, nid, a1 + a1, -1)
                     self.tp_new = tp
+                self.refresh_guion()
                 # li = self.guion.borraRepeticionUltima()
                 # if li:
                 #     self.borrar_lista(li)
@@ -998,7 +989,6 @@ class Director:
                 return False
             if self.director:
                 QtWidgets.QGraphicsView.mousePressEvent(self.board, event)
-
 
         p = event.pos()
         a1h8 = self.punto2a1h8(p)

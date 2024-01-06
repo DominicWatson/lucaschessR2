@@ -20,10 +20,11 @@ from Code.Base.Constantes import (
     ST_PAUSE,
     TERMINATION_UNKNOWN,
     TERMINATION_WIN_ON_TIME,
+    ENG_WICKER,
 )
 from Code.Board import Board
-from Code.Engines import EngineManager
-from Code.Polyglots import Books
+from Code.Engines import EngineManager, EnginesWicker
+from Code.Books import Books
 from Code.QT import Colocacion
 from Code.QT import Columnas
 from Code.QT import Controles
@@ -119,6 +120,7 @@ class WTournamentRun(QtWidgets.QWidget):
         QtWidgets.QWidget.__init__(self)
 
         Code.list_engine_managers = EngineManager.ListEngineManagers()
+
         self.torneo = TournamentRun(file_tournament)  # Tournament.Tournament(file_tournament)
         self.file_work = file_work
         self.db_work = UtilSQL.ListSQL(file_work)
@@ -270,7 +272,7 @@ class WTournamentRun(QtWidgets.QWidget):
 
         if self.torneo.adjudicator_active():
             conf_engine = Code.configuration.buscaRival(self.torneo.adjudicator())
-            self.xadjudicator = EngineManager.EngineManager(self, conf_engine)
+            self.xadjudicator = EngineManager.EngineManager(conf_engine)
             self.xadjudicator.options(self.torneo.adjudicator_time() * 1000, 0, False)
             self.xadjudicator.remove_multipv()
         else:
@@ -295,9 +297,15 @@ class WTournamentRun(QtWidgets.QWidget):
 
         for side in (WHITE, BLACK):
             rv = rival[side]
-            self.xengine[side] = EngineManager.EngineManager(self, rv)
+            if rv.type == ENG_WICKER:
+                xmanager = EnginesWicker.EngineManagerWicker(rv)
+            else:
+                xmanager = EngineManager.EngineManager(rv)
+            self.xengine[side] = xmanager
             self.xengine[side].options(rv.time * 1000, rv.depth, False)
             self.xengine[side].set_gui_dispatch(self.gui_dispatch)
+
+
 
             bk = rv.book
             if bk == "*":
@@ -546,9 +554,9 @@ class WTournamentRun(QtWidgets.QWidget):
                                           RESULT_WIN_BLACK if self.current_side == WHITE else RESULT_WIN_WHITE)
             return False
         if time_seconds:
-            move.set_time_ms(time_seconds*1000.0)
+            move.set_time_ms(time_seconds * 1000.0)
         if clock_seconds:
-            move.set_clock_ms(clock_seconds*1000.0)
+            move.set_clock_ms(clock_seconds * 1000.0)
         if analysis:
             move.analysis = analysis
             move.del_nags()

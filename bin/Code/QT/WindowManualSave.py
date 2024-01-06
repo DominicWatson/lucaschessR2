@@ -11,10 +11,10 @@ from Code.QT import Controles
 from Code.QT import Delegados
 from Code.QT import Grid
 from Code.QT import Iconos
+from Code.QT import LCDialog
 from Code.QT import QTUtil2, SelectFiles
 from Code.QT import QTVarios
 from Code.Voyager import Voyager
-from Code.QT import LCDialog
 
 
 class WManualSave(LCDialog.LCDialog):
@@ -66,7 +66,7 @@ class WManualSave(LCDialog.LCDialog):
         self.board.crea()
         self.board.set_side_bottom(True)
         ##
-        lybt, bt = QTVarios.lyBotonesMovimiento(self, "", siLibre=False, icon_size=24, siTiempo=False)
+        lybt, bt = QTVarios.ly_mini_buttons(self, "", siLibre=False, icon_size=24, siTiempo=False)
         ##
         self.em_solucion = Controles.EM(self, siHTML=False).altoMinimo(40).capturaCambios(self.reset_game)
         ##
@@ -132,7 +132,7 @@ class WManualSave(LCDialog.LCDialog):
         self.bt_stop.hide()
 
         lb_engine = Controles.LB(self, _("Engine") + ":")
-        liMotores = self.configuration.comboMotores()
+        liMotores = self.configuration.combo_engines()
         self.cb_engine = Controles.CB(self, liMotores, self.configuration.x_tutor_clave).capture_changes(
             self.reset_motor
         )
@@ -341,7 +341,7 @@ class WManualSave(LCDialog.LCDialog):
             time = 0.5 if (self.pgn and self.fns) else 1.0
             try:
                 f.write(txt)
-                QTUtil2.mensajeTemporal(self, "%s: %s" % (quien, _("Saved")), time)
+                QTUtil2.temporary_message(self, "%s: %s" % (quien, _("Saved")), time)
             except:
                 QTUtil2.message_error(self, _("Error writing to file %s") % fich)
             f.close()
@@ -370,7 +370,8 @@ class WManualSave(LCDialog.LCDialog):
         prev = self.analyzing
         self.stop()
 
-        position, is_white_bottom = Voyager.voyager_position(self, self.position, wownerowner=self.procesador.main_window)
+        position, is_white_bottom = Voyager.voyager_position(self, self.position,
+                                                             wownerowner=self.procesador.main_window)
         if position is not None:
             self.em_solucion.set_text("")
             self.position = position
@@ -399,7 +400,7 @@ class WManualSave(LCDialog.LCDialog):
             return
         self.procesador.motoresExternos()
         valor = self.cb_engine.valor()
-        liMotores = self.configuration.comboMotores()
+        liMotores = self.configuration.combo_engines()
         engine = self.configuration.x_tutor_clave
         for label, key in liMotores:
             if key == valor:

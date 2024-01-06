@@ -68,7 +68,7 @@ class BotonColor(QtWidgets.QPushButton):
         ncolor = self.rut_actual()
         color = QTUtil.qtColor(ncolor)
 
-        color = QtWidgets.QColorDialog.getColor(color, title=_("Choose a color"))
+        color = QtWidgets.QColorDialog.getColor(color, self, _("Choose a color"), QtWidgets.QColorDialog.ShowAlphaChannel | QtWidgets.QColorDialog.DontUseNativeDialog)
         if color.isValid():
             self.rut_actual(color.rgba())
             self.rut_actualiza()
@@ -669,7 +669,7 @@ class WBoardColors(LCDialog.LCDialog):
             tema["o_base"] = self.config_board.grabaBase()
             self.test_if_pieces(tema)
             Util.save_pickle(fich, tema)
-            QTUtil2.mensajeTemporal(self, _("Saved"), 1.0)
+            QTUtil2.temporary_message(self, _("Saved"), 1.0)
 
     def cambia_tema(self, tema, si_left):
         if si_left:

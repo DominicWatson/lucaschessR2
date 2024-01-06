@@ -5,9 +5,10 @@ from PySide2 import QtWidgets, QtCore, QtGui
 
 import Code
 from Code import Util
+from Code.Base.Constantes import BOOK_BEST_MOVE, BOOK_RANDOM_UNIFORM, BOOK_RANDOM_PROPORTIONAL
 from Code.Engines import Engines
 from Code.Engines import EnginesMicElo
-from Code.Polyglots import Books
+from Code.Books import Books
 from Code.QT import Colocacion
 from Code.QT import Columnas
 from Code.QT import Controles
@@ -35,7 +36,7 @@ def selectEngine(wowner):
     Code.configuration.write_variables("FOLDER_ENGINES", folderEngines)
 
     # Leemos el UCI
-    um = QTUtil2.unMomento(wowner)
+    um = QTUtil2.one_moment_please(wowner)
     me = Engines.read_engine_uci(exeMotor)
     um.final()
     if not me:
@@ -50,7 +51,8 @@ class WSelectEngineElo(LCDialog.LCDialog):
 
         self.siMicElo = tipo == "MICELO"
         self.siMicPer = tipo == "MICPER"
-        self.siMic = self.siMicElo or self.siMicPer
+        self.siWicker = tipo == "WICKER"
+        self.siMic = self.siMicElo or self.siMicPer or self.siWicker
 
         self.key_save = f"SELECTENGINE_{tipo}"
         dic_save = Code.configuration.read_variables(self.key_save)
@@ -74,7 +76,7 @@ class WSelectEngineElo(LCDialog.LCDialog):
             (_("Random opponent"), Iconos.FAQ(), self.selectRandom),
             None,
         ]
-        if self.siMicElo:
+        if self.siMicElo or self.siWicker:
             li_acciones.append((_("Reset"), Iconos.Reiniciar(), self.reset))
             li_acciones.append(None)
 
@@ -83,7 +85,7 @@ class WSelectEngineElo(LCDialog.LCDialog):
         self.liMotores = self.manager.list_engines(elo)
         self.liMotoresActivos = self.liMotores
 
-        liFiltro = (
+        li_filtro = (
             ("---", None),
             (">=", ">"),
             ("<=", "<"),
@@ -93,7 +95,7 @@ class WSelectEngineElo(LCDialog.LCDialog):
             ("+-400", "400"),
             ("+-800", "800"),
         )
-        self.cbElo = Controles.CB(self, liFiltro, dic_save.get("ELO")).capture_changes(self.filtrar)
+        self.cbElo = Controles.CB(self, li_filtro, dic_save.get("ELO")).capture_changes(self.filtrar)
 
         minimo = 9999
         maximo = 0
@@ -103,22 +105,22 @@ class WSelectEngineElo(LCDialog.LCDialog):
                     minimo = mt.elo
                 if mt.elo > maximo:
                     maximo = mt.elo
-        self.sbElo, lbElo = QTUtil2.spinBoxLB(self, elo, minimo, maximo, maxTam=50, etiqueta=_("Elo"))
+        self.sbElo, lbElo = QTUtil2.spinbox_lb(self, elo, minimo, maximo, max_width=75, etiqueta=_("Elo"))
         self.sbElo.capture_changes(self.filtrar)
 
         if self.siMic:
-            liCaract = []
+            li_caract = []
             st = set()
             for mt in self.liMotores:
-                mt.liCaract = li = mt.id_info.split("\n")
-                mt.txtCaract = ", ".join([_F(x) for x in li])
+                mt.li_caract = li = mt.id_info.split("\n")
+                mt.txt_caract = ", ".join(li)
                 for x in li:
                     if not (x in st):
                         st.add(x)
-                        liCaract.append((_F(x), x))
-            liCaract.sort(key=lambda x: x[1])
-            liCaract.insert(0, ("---", None))
-            self.cbCaract = Controles.CB(self, liCaract, dic_save.get("CARACT")).capture_changes(self.filtrar)
+                        li_caract.append((x, x))
+            li_caract.sort(key=lambda x: x[1])
+            li_caract.insert(0, ("---", None))
+            self.cbCaract = Controles.CB(self, li_caract, dic_save.get("CARACT")).capture_changes(self.filtrar)
 
         ly = Colocacion.H().control(lbElo).control(self.cbElo).control(self.sbElo)
         if self.siMic:
@@ -130,6 +132,12 @@ class WSelectEngineElo(LCDialog.LCDialog):
         o_columns = Columnas.ListaColumnas()
         o_columns.nueva("NUMBER", _("N."), 35, align_center=True)
         o_columns.nueva("ENGINE", _("Name"), 140)
+
+        for mt in self.liMotores:
+            if mt.max_depth:
+                o_columns.nueva("DEPTH", _("Depth"), 60, align_center=True)
+                break
+
         o_columns.nueva("ELO", _("Elo"), 60, align_right=True)
         if not self.siMicPer:
             o_columns.nueva("GANA", _("Win"), 80, align_center=True)
@@ -178,14 +186,14 @@ class WSelectEngineElo(LCDialog.LCDialog):
         if self.siMic:
             cc = self.cbCaract.valor()
             if cc:
-                self.liMotoresActivos = [mt for mt in self.liMotoresActivos if cc in mt.liCaract]
+                self.liMotoresActivos = [mt for mt in self.liMotoresActivos if cc in mt.li_caract]
         self.grid.refresh()
 
     def reset(self):
         if not QTUtil2.pregunta(self, _("Are you sure you want to set the original elo of all engines?")):
             return
 
-        self.manager.configuration.write_variables("DicMicElos", {})
+        self.manager.configuration.write_variables("DicMicElos" if self.siMicElo else "DicWickerElos", {})
         self.cancelar()
 
     def cancelar(self):
@@ -252,11 +260,13 @@ class WSelectEngineElo(LCDialog.LCDialog):
         if key == "NUMBER":
             valor = "%2d" % mt.number
         elif key == "ENGINE":
-            valor = " " + Util.primera_mayuscula(mt.alias)
+            valor = " " + mt.name
+        elif key == "DEPTH":
+            valor = str(mt.depth) if mt.depth else ""
         elif key == "ELO":
             valor = "%d " % mt.elo
         elif key == "INFO":
-            valor = mt.txtCaract
+            valor = mt.txt_caract
         else:
             if not mt.siJugable:
                 return "x"
@@ -286,6 +296,16 @@ def select_engine_micelo(manager, elo):
     titulo = _("Club players competition") + ". " + _("Choose the opponent")
     icono = Iconos.EloTimed()
     w = WSelectEngineElo(manager, elo, titulo, icono, "MICELO")
+    if w.exec_():
+        return w.resultado
+    else:
+        return None
+
+
+def select_engine_wicker(manager, elo):
+    titulo = _("The Wicker Park Tourney") + ". " + _("Choose the opponent")
+    icono = Iconos.EloTimed()
+    w = WSelectEngineElo(manager, elo, titulo, icono, "WICKER")
     if w.exec_():
         return w.resultado
     else:
@@ -339,7 +359,7 @@ class WEngineExtend(QtWidgets.QDialog):
         self.siTorneo = siTorneo
 
         # Toolbar
-        tb = QTVarios.tbAcceptCancel(self)
+        tb = QTVarios.tb_accept_cancel(self)
 
         lb_alias = Controles.LB2P(self, _("Alias"))
         self.edAlias = Controles.ED(self, engine.key).anchoMinimo(360)
@@ -363,11 +383,7 @@ class WEngineExtend(QtWidgets.QDialog):
             self.edTime = Controles.ED(self, "").ponFloat(engine.time).anchoFijo(60).align_right()
 
             lb_book = Controles.LB(self, _("Opening book") + ": ")
-            fvar = Code.configuration.file_books
             self.list_books = Books.ListBooks()
-            self.list_books.restore_pickle(fvar)
-            # # Comprobamos que todos esten accesibles
-            self.list_books.verify()
             li = [(x.name, x.path) for x in self.list_books.lista]
             li.insert(0, ("* " + _("None"), "-"))
             li.insert(0, ("* " + _("By default"), "*"))
@@ -375,11 +391,11 @@ class WEngineExtend(QtWidgets.QDialog):
             bt_nuevo_book = Controles.PB(self, "", self.nuevoBook, plano=False).ponIcono(Iconos.Nuevo(), icon_size=16)
             # # Respuesta rival
             li = (
-                (_("Uniform random"), "au"),
-                (_("Proportional random"), "ap"),
-                (_("Always the highest percentage"), "mp"),
+                (_("Uniform random"), BOOK_RANDOM_UNIFORM),
+                (_("Proportional random"), BOOK_RANDOM_PROPORTIONAL),
+                (_("Always the highest percentage"), BOOK_BEST_MOVE),
             )
-            self.cbBooksRR = QTUtil2.comboBoxLB(self, li, engine.bookRR)
+            self.cbBooksRR = QTUtil2.combobox_lb(self, li, engine.bookRR)
             ly_book = (
                 Colocacion.H()
                 .control(lb_book)
@@ -422,8 +438,6 @@ class WEngineExtend(QtWidgets.QDialog):
             name = os.path.basename(fbin)[:-4]
             b = Books.Book("P", name, fbin, False)
             self.list_books.nuevo(b)
-            fvar = Code.configuration.file_books
-            self.list_books.save_pickle(fvar)
             li = [(x.name, x.path) for x in self.list_books.lista]
             li.insert(0, ("* " + _("Engine book"), "-"))
             li.insert(0, ("* " + _("By default"), "*"))
@@ -472,12 +486,12 @@ def wgen_options_engine(owner, engine):
         tipo = opcion.tipo
         lb = Controles.LB(owner, opcion.name + ":").align_right()
         if tipo == "spin":
-            control = QTUtil2.spinBoxLB(
-                owner, opcion.valor, opcion.minimo, opcion.maximo, maxTam=50 if opcion.maximo < 1000 else 80
+            control = QTUtil2.spinbox_lb(
+                owner, opcion.valor, opcion.minimo, opcion.maximo, max_width=50 if opcion.maximo < 1000 else 80
             )
             lb.set_text("%s [%d-%d] :" % (opcion.name, opcion.minimo, opcion.maximo))
         elif tipo == "check":
-            control = Controles.CHB(owner, " ", opcion.valor)
+            control = Controles.CHB(owner, " ", opcion.valor == "true")
         elif tipo == "combo":
             li_vars = []
             for var in opcion.li_vars:
@@ -513,7 +527,7 @@ def wsave_options_engine(engine):
         if tipo == "spin":
             valor = control.value()
         elif tipo == "check":
-            valor = control.isChecked()
+            valor = "true" if control.isChecked() else "false"
         elif tipo == "combo":
             valor = control.valor()
         elif tipo == "string":
@@ -524,6 +538,6 @@ def wsave_options_engine(engine):
         #     valor = control.isChecked()
         if valor != opcion.default:
             liUCI.append((opcion.name, valor))
-            opcion.valor = valor
+        opcion.valor = valor
         if opcion.name == "MultiPV":
             engine.maxMultiPV = opcion.maximo

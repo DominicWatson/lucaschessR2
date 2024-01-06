@@ -32,6 +32,7 @@ def options(parent, configuration):
 
     li_traducciones = configuration.list_translations()
     tr_actual = configuration.translator()
+
     li = []
     for k, trad, porc, author in li_traducciones:
         label = "%s" % trad
@@ -44,7 +45,7 @@ def options(parent, configuration):
     li = [
         (_("Play against an engine"), MENU_PLAY_ANY_ENGINE),
         (_("Opponents for young players"), MENU_PLAY_YOUNG_PLAYERS),
-        (_("Both"), MENU_PLAY_BOTH),
+        (_("All"), MENU_PLAY_BOTH),
     ]
     form.combobox(_("Menu Play"), li, configuration.x_menu_play)
 
@@ -99,8 +100,8 @@ def options(parent, configuration):
     form.separador()
 
     li_mouse_sh = [
-        (_("Type fixed: you must always indicate origin and destination"), False),
-        (_("Type predictive: program tries to guess your intention"), True),
+        (_("Fixed type: you must always indicate origin and destination"), False),
+        (_("Predictive type: program tries to guess your intention"), True),
     ]
     form.combobox(_("Mouse shortcuts"), li_mouse_sh, configuration.x_mouse_shortcuts)
     form.checkbox(_("Show candidates"), configuration.x_show_candidates)
@@ -181,7 +182,7 @@ def options(parent, configuration):
         (_("The text appears beside the icon"), QtCore.Qt.ToolButtonTextBesideIcon),
         (_("The text appears under the icon"), QtCore.Qt.ToolButtonTextUnderIcon),
     )
-    form.combobox(_("Icons"), li, configuration.tipoIconos())
+    form.combobox(_("Icons"), li, configuration.type_icons())
 
     form.add_tab("%s 1" % _("Appearance"))
 
@@ -198,6 +199,7 @@ def options(parent, configuration):
 
     form.checkbox(_("Enable captured material window by default"), configuration.x_captures_activate)
     form.checkbox(_("Enable information panel by default"), configuration.x_info_activate)
+    form.checkbox(_("Enable analysis bar by default"), configuration.x_analyzer_activate_ab)
     form.checkbox(_("Arrow with the best move when there is an analysis"), configuration.x_show_bestmove)
     form.separador()
     form.spinbox(_("Font size of information labels"), 3, 30, 70, configuration.x_sizefont_infolabels)
@@ -211,6 +213,8 @@ def options(parent, configuration):
     form.spinbox(_("Lucas-Elo"), 0, 3200, 70, configuration.x_elo)
     form.separador()
     form.spinbox(_("Tourney-Elo"), 0, 3200, 70, configuration.x_michelo)
+    form.separador()
+    form.spinbox(_("The Wicker Park Tourney"), 0, 3200, 70, configuration.x_wicker)
     form.separador()
     form.spinbox(_("Fics-Elo"), 0, 3200, 70, configuration.x_fics)
     form.separador()
@@ -271,6 +275,7 @@ def options(parent, configuration):
             configuration.x_pgn_withfigurines,
             configuration.x_captures_activate,
             configuration.x_info_activate,
+            configuration.x_analyzer_activate_ab,
             configuration.x_show_bestmove,
             configuration.x_sizefont_infolabels,
             configuration.x_enable_highdpiscaling,
@@ -279,7 +284,7 @@ def options(parent, configuration):
         if configuration.x_font_family in ("System", "MS Shell Dlg 2"):
             configuration.x_font_family = ""
 
-        configuration.set_tipoIconos(qt_iconstb)
+        configuration.set_type_icons(qt_iconstb)
 
         (
             configuration.x_sound_beep,
@@ -337,6 +342,7 @@ def options(parent, configuration):
         (
             configuration.x_elo,
             configuration.x_michelo,
+            configuration.x_wicker,
             configuration.x_fics,
             configuration.x_fide,
             configuration.x_lichess,

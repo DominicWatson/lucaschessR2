@@ -36,17 +36,17 @@ def read_engines(folder_engines):
     cm = mas("lc0", "The LCZero Authors", "0.27.0", "https://github.com/LeelaChessZero", "Lc0-0.27.0", 3332)
     cm.ordenUCI("Hash", "64")
     cm.ordenUCI("Threads", "2")
-    cm.set_multipv(20, 500)
+    cm.set_multipv(10, 500)
 
-    cm = mas("stockfish", "Tord Romstad, Marco Costalba, Joona Kiiski", f"15.1{bmi2}", "http://stockfishchess.org/", f"Stockfish-15_1_x64{bmi2}", 3551)
+    cm = mas("stockfish", "Tord Romstad, Marco Costalba, Joona Kiiski", f"16{bmi2}", "http://stockfishchess.org/", f"Stockfish-16_x64{bmi2}", 3551)
     cm.ordenUCI("Hash", "64")
     cm.ordenUCI("Threads", "2")
-    cm.set_multipv(20, 500)
+    cm.set_multipv(10, 500)
 
     cm = mas("komodo", "Don Dailey, Larry Kaufman", f"14.1{bmi2}", "http://komodochess.com/", f"komodo-14.1-linux{bmi2}", 3406)
     cm.ordenUCI("Hash", "64")
     cm.ordenUCI("Threads", "2")
-    cm.set_multipv(20, 218)
+    cm.set_multipv(10, 218)
 
     mas("alouette", "Roland Chastain", "0.1.4", "https://gitlab.com/rchastain/alouette", "Alouette-0.1.4", 689)
 
@@ -91,9 +91,9 @@ def read_engines(folder_engines):
 
     mas("ethereal", "Andrew Grant, Alayan & Laldon", "12.75", "https://github.com/AndyGrant/Ethereal", "Ethereal-12.75", 3392)
 
-    mas("foxcub", "Lucas Monge", "1.1", "", "FoxCub.exe", 800)
+    mas("foxcub", "Lucas Monge", "1.1", "", "FoxCub", 800)
 
-    mas("fox", "Lucas Monge", "1.1", "", "Fox.exe", 1400)
+    mas("fox", "Lucas Monge", "1.1", "", "Fox", 1400)
 
     mas("fractal", "Visan Alexandru", "1.0", "https://github.com/visanalexandru/FracTal-ChessEngine", "FracTal-1.0", 2010)
 
@@ -111,7 +111,7 @@ def read_engines(folder_engines):
 
     mas("greko", "Vladimir Medvedev", "2020.03", "http://greko.su/index_en.html", "GreKo-2020.03", 2580)
 
-    mas("greko98", "Vladimir Medvedev", "9.8a", "http://sourceforge.net/projects/greko", "GreKo98a", 2500)
+    mas("greko98", "Vladimir Medvedev", "9.8", "http://sourceforge.net/projects/greko", "GreKo98a", 2500)
 
     mas("gunborg", "Torbjorn Nilsson", "1.35", "https://github.com/torgnil/gunborg", "Gunborg-1.35", 2086)
 
@@ -119,7 +119,7 @@ def read_engines(folder_engines):
 
     mas("igel", "Volodymyr Shcherbyna", "3.0.0", "https://github.com/vshcherbyna/igel/", "Igel-3.0.0", 3402)
 
-    mas("irina", "Lucas Monge", "0.15", "https://github.com/lukasmonk/irina", "Irina-0.15", 1500)
+    mas("irina", "Lucas Monge", "0.16", "https://github.com/lukasmonk/irina", "irina-0.16", 1500)
 
     mas("jabba", "Richard Allbert", "1.0", "http://jabbachess.blogspot.com/", "Jabba-1.0", 2078)
 
@@ -164,7 +164,7 @@ def read_engines(folder_engines):
     mas("texel", "Peter Österlund", "1.06", "http://web.comhem.se/petero2home/javachess/index.html#texel", "Texel-1.06", 2900)
 
     cm = mas("toga", "WHMoweryJr,Thomas Gaksch,Fabien Letouzey", "deepTogaNPS 1.9.6", "http://www.computerchess.info/tdbb/phpBB3/viewtopic.php?f=9&t=357", "DeepToga1.9.6nps", 2843)
-    cm.set_multipv(20, 40)
+    cm.set_multipv(10, 40)
 
     mas("tucano", "Alcides Schulz", "9.00", "https://sites.google.com/site/tucanochess", "Tucano-9.00", 2940)
 

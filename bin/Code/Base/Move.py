@@ -42,6 +42,8 @@ class Move:
         self.bad_move = None
         self.verybad_move = None
 
+        self.elo_avg = 0
+
     def set_time_ms(self, ms):
         self.time_ms = ms
 
@@ -80,6 +82,22 @@ class Move:
         pts0 = mrm.li_rm[0].centipawns_abs()
         return pts0 - pts
 
+    def get_points_lost_mate(self):
+        if self.analysis is None:
+            return None, None
+        mrm, pos = self.analysis
+        if pos == 0:
+            return None, None
+        rm_best = mrm.li_rm[0]
+        rm_user = mrm.li_rm[pos]
+        pts = mrm.li_rm[pos].centipawns_abs()
+        pts0 = mrm.li_rm[0].centipawns_abs()
+        dif = pts0 - pts
+        if dif:
+            if rm_user.mate != 0 and rm_best.mate != 0:
+                return dif, rm_best.mate - rm_user.mate
+        return dif, None
+
     @property
     def liMovs(self):
         liMovs = [("b", self.to_sq), ("m", self.from_sq, self.to_sq)]
@@ -101,8 +119,8 @@ class Move:
 
     @property
     def pgnBase(self):
-        pgnBase = self.position_before.pgn(self.from_sq, self.to_sq, self.promotion)
-        return pgnBase
+        xpgn_base = self.position_before.pgn(self.from_sq, self.to_sq, self.promotion)
+        return xpgn_base
 
     def add_nag(self, nag):
         if nag and not (nag in self.li_nags):
@@ -278,6 +296,9 @@ class Move:
         #     mrm = m
 
         self.variations.analisis2variantes(mrm, almVariations, delete_previous)
+
+    def has_alternatives(self):
+        return len(self.position_before.get_exmoves()) > 1
 
     def borraCV(self):
         self.variations.clear()

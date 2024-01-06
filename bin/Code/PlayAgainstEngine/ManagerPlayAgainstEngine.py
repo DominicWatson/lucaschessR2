@@ -20,7 +20,6 @@ from Code.Base.Constantes import (
     TB_CANCEL,
     TB_CONTINUE,
     TB_DRAW,
-    TB_HELP_TO_MOVE,
     TB_PAUSE,
     TB_QUIT,
     TB_RESIGN,
@@ -36,15 +35,15 @@ from Code.Base.Constantes import (
     ADJUST_BETTER,
     ADJUST_SELECTED_BY_PLAYER,
     ST_PAUSE,
-    ENG_MICPER,
-    ENG_MICGM,
     ENG_ELO,
     INACCURACY,
+    BOOK_BEST_MOVE,
+    SELECTED_BY_PLAYER
 )
 from Code.Engines import EngineResponse
 from Code.Openings import Opening, OpeningLines
 from Code.PlayAgainstEngine import WPlayAgainstEngine, Personalities
-from Code.Polyglots import Books, WindowBooks
+from Code.Books import Books, WBooks
 from Code.QT import Iconos
 from Code.QT import QTUtil
 from Code.QT import QTUtil2
@@ -128,7 +127,6 @@ class ManagerPlayAgainstEngine(Manager.Manager):
 
         self.human_is_playing = False
         self.rival_is_thinking = False
-        self.plays_instead_of_me_option = True
         self.state = ST_PLAYING
         self.is_analyzing = False
 
@@ -174,14 +172,13 @@ class ManagerPlayAgainstEngine(Manager.Manager):
             self.book_rival_active = True
             self.book_rival_depth = dic_var.get("BOOKRDEPTH", 0)
             self.book_rival.polyglot()
-            self.book_rival_select = dic_var.get("BOOKRR", "mp")
-        elif dic_var["RIVAL"].get("TYPE", None) in (ENG_MICGM, ENG_MICPER):
-            if self.conf_engine.book:
-                self.book_rival_active = True
-                self.book_rival = Books.Book("P", self.conf_engine.book, self.conf_engine.book, True)
-                self.book_rival.polyglot()
-                self.book_rival_select = "mp"
-                self.book_rival_depth = 0
+            self.book_rival_select = dic_var.get("BOOKRR", BOOK_BEST_MOVE)
+        elif self.conf_engine.book:
+            self.book_rival_active = True
+            self.book_rival = Books.Book("P", self.conf_engine.book, self.conf_engine.book, True)
+            self.book_rival.polyglot()
+            self.book_rival_select = BOOK_BEST_MOVE
+            self.book_rival_depth = getattr(self.conf_engine, "book_max_plies", 0)
 
         self.book_player_active = False
         self.book_player = dic_var.get("BOOKP", None)
@@ -207,6 +204,8 @@ class ManagerPlayAgainstEngine(Manager.Manager):
         self.limit_pww = dic_var.get("LIMIT_PWW", 90)
 
         self.humanize = dic_var.get("HUMANIZE", False)
+        if dic_var.get("ANALYSIS_BAR", False):
+            self.main_window.activate_analysis_bar(True)
 
         if dic_var.get("ACTIVATE_EBOARD"):
             Code.eboard.activate(self.board.dispatch_eboard)
@@ -334,7 +333,6 @@ class ManagerPlayAgainstEngine(Manager.Manager):
         if self.play_while_win:
             self.is_tutor_enabled = True
 
-
         self.game.add_tag_timestart()
 
         self.check_boards_setposition()
@@ -346,7 +344,6 @@ class ManagerPlayAgainstEngine(Manager.Manager):
                     TB_CANCEL,
                     TB_RESIGN,
                     TB_DRAW,
-                    TB_HELP_TO_MOVE,
                     TB_REINIT,
                     TB_PAUSE,
                     TB_ADJOURN,
@@ -362,7 +359,6 @@ class ManagerPlayAgainstEngine(Manager.Manager):
             self.main_window.enable_option_toolbar(TB_RESIGN, hip)
             self.main_window.enable_option_toolbar(TB_DRAW, hip)
             self.main_window.enable_option_toolbar(TB_TAKEBACK, hip)
-            self.main_window.enable_option_toolbar(TB_HELP_TO_MOVE, hip)
             self.main_window.enable_option_toolbar(TB_PAUSE, hip)
             self.main_window.enable_option_toolbar(TB_CONFIG, hip)
             self.main_window.enable_option_toolbar(TB_UTILITIES, hip)
@@ -431,8 +427,8 @@ class ManagerPlayAgainstEngine(Manager.Manager):
             if tc.time_is_consumed():
                 t = time.time()
                 if is_player and QTUtil2.pregunta(
-                    self.main_window,
-                    _X(_("%1 has won on time."), self.xrival.name) + "\n\n" + _("Add time and keep playing?"),
+                        self.main_window,
+                        _X(_("%1 has won on time."), self.xrival.name) + "\n\n" + _("Add time and keep playing?"),
                 ):
                     minX = WPlayAgainstEngine.dameMinutosExtra(self.main_window)
                     if minX:
@@ -475,32 +471,29 @@ class ManagerPlayAgainstEngine(Manager.Manager):
         elif key == TB_CONTINUE:
             self.xcontinue()
 
-        elif key == TB_HELP_TO_MOVE:
-            self.help_to_move()
-
         elif key == TB_REINIT:
             self.reiniciar(True)
 
         elif key == TB_CONFIG:
-            liMasOpciones = []
-            if self.state == ST_PLAYING:
-                liMasOpciones.append((None, None, None))
-                liMasOpciones.append(("rival", _("Change opponent"), Iconos.Engine()))
+            li_mas_opciones = []
+            if self.state == ST_PLAYING and self.game_type == GT_AGAINST_ENGINE:
+                li_mas_opciones.append((None, None, None))
+                li_mas_opciones.append(("rival", _("Change opponent"), Iconos.Engine()))
                 if len(self.game) > 0:
-                    liMasOpciones.append((None, None, None))
-                    liMasOpciones.append(("moverival", _("Change opponent move"), Iconos.TOLchange()))
-            resp = self.configurar(liMasOpciones, siSonidos=True, siCambioTutor=self.ayudas_iniciales > 0)
+                    li_mas_opciones.append((None, None, None))
+                    li_mas_opciones.append(("moverival", _("Change opponent move"), Iconos.TOLchange()))
+            resp = self.configurar(li_mas_opciones, siSonidos=True, siCambioTutor=self.ayudas_iniciales > 0)
             if resp == "rival":
                 self.change_rival()
             elif resp == "moverival":
                 self.change_last_move_engine()
 
         elif key == TB_UTILITIES:
-            liMasOpciones = []
+            li_mas_opciones = []
             if self.human_is_playing or self.is_finished():
-                liMasOpciones.append(("books", _("Consult a book"), Iconos.Libros()))
+                li_mas_opciones.append(("books", _("Consult a book"), Iconos.Libros()))
 
-            resp = self.utilities(liMasOpciones)
+            resp = self.utilities(li_mas_opciones)
             if resp == "books":
                 siEnVivo = self.human_is_playing and not self.is_finished()
                 liMovs = self.librosConsulta(siEnVivo)
@@ -587,7 +580,7 @@ class ManagerPlayAgainstEngine(Manager.Manager):
         if self.timed:
             self.main_window.stop_clock()
         self.analizaTerminar()
-        if self.book_rival_select == "su" or self.nAjustarFuerza == ADJUST_SELECTED_BY_PLAYER:
+        if self.book_rival_select == SELECTED_BY_PLAYER or self.nAjustarFuerza == ADJUST_SELECTED_BY_PLAYER:
             self.cache = {}
         self.reinicio["cache"] = self.cache
         self.reinicio["cache_analysis"] = self.cache_analysis
@@ -670,8 +663,8 @@ class ManagerPlayAgainstEngine(Manager.Manager):
     def finalizar(self):
         if self.state == ST_ENDGAME:
             return True
-        siJugadas = len(self.game) > 0
-        if siJugadas:
+        si_jugadas = len(self.game) > 0
+        if si_jugadas:
             if not QTUtil2.pregunta(self.main_window, _("End game?")):
                 return False  # no abandona
             if self.timed:
@@ -933,10 +926,10 @@ class ManagerPlayAgainstEngine(Manager.Manager):
     def select_book_move_base(self, book, book_select):
         fen = self.last_fen()
 
-        if book_select == "su":
+        if book_select == SELECTED_BY_PLAYER:
             listaJugadas = book.get_list_moves(fen)
             if listaJugadas:
-                resp = WindowBooks.eligeJugadaBooks(self.main_window, listaJugadas, self.game.last_position.is_white)
+                resp = WBooks.eligeJugadaBooks(self.main_window, listaJugadas, self.game.last_position.is_white)
                 return True, resp[0], resp[1], resp[2]
         else:
             pv = book.eligeJugadaTipo(fen, book_select)
@@ -1054,7 +1047,7 @@ class ManagerPlayAgainstEngine(Manager.Manager):
                 seconds_white,
                 seconds_black,
                 seconds_move,
-                nAjustado=self.nAjustarFuerza,
+                adjusted=self.nAjustarFuerza,
                 humanize=self.humanize,
             )
 
@@ -1118,21 +1111,27 @@ class ManagerPlayAgainstEngine(Manager.Manager):
         return True
 
     def help_to_move(self):
-        if not self.is_finished():
-            move = Move.Move(self.game, position_before=self.game.last_position.copia())
-            if self.is_tutor_enabled:
-                self.analyze_end()
-                move.analysis = self.mrmTutor, 0
-            Analysis.show_analysis(self.procesador, self.xtutor, move, self.board.is_white_bottom, 0, must_save=False)
+        move = Move.Move(self.game, position_before=self.game.last_position.copia())
+        if self.is_tutor_enabled:
+            self.analyze_end()
+            move.analysis = self.mrmTutor, 0
+        Analysis.show_analysis(self.procesador, self.xtutor, move, self.board.is_white_bottom, 0, must_save=False)
+        if self.hints:
+            self.hints -= 1
+            self.ponAyudasEM()
 
     def play_instead_of_me(self):
-        if self.state != ST_PLAYING or self.is_finished():
+        if self.state != ST_PLAYING or self.is_finished() or self.game_type != GT_AGAINST_ENGINE:
             return
+
+        fen_base = self.last_fen()
 
         if self.hints:
             self.hints -= 1
-
-        fen_base = self.last_fen()
+            if self.hints:
+                self.ponAyudas(self.hints)
+            else:
+                self.remove_hints()
 
         if self.book_rival:
             listaJugadas = self.book_rival.get_list_moves(fen_base)
@@ -1157,7 +1156,13 @@ class ManagerPlayAgainstEngine(Manager.Manager):
             rm = self.mrmTutor.mejorMov()
             return self.player_has_moved_base(rm.from_sq, rm.to_sq, rm.promotion)
 
-        return Manager.Manager.play_instead_of_me(self)
+        if self.if_analyzing:
+            self.analyze_end()
+
+        mrm = self.analizaTutor(with_cursor=True)
+        rm = mrm.mejorMov()
+        if rm and rm.from_sq:
+            self.player_has_moved_base(rm.from_sq, rm.to_sq, rm.promotion)
 
     def pww_centipawns_lost(self, rm_best: EngineResponse.EngineResponse, rm_user: EngineResponse.EngineResponse):
         cps = 0
@@ -1322,7 +1327,7 @@ class ManagerPlayAgainstEngine(Manager.Manager):
                             if num:
                                 rm_tutor = self.mrmTutor.rmBest()
                                 menu = QTVarios.LCMenu(self.main_window)
-                                menu.opcion("None", _("There are %d best moves") % num, Iconos.Engine())
+                                menu.opcion("None", _("There are %d best movements") % num, Iconos.Engine())
                                 menu.separador()
                                 resp = rm_tutor.abrTextoBase()
                                 if not resp:
@@ -1713,10 +1718,9 @@ class ManagerPlayAgainstEngine(Manager.Manager):
             for n in range(side, nbloques, 2):
                 pv = lipv[n]
                 if previo:
-                    self.board.show_arrow_mov(previo[2:4], pv[:2], "tr", opacity=max(opacity/2, 0.3))
+                    self.board.show_arrow_mov(previo[2:4], pv[:2], "tr", opacity=max(opacity / 2, 0.3))
 
                 self.board.show_arrow_mov(pv[:2], pv[2:4], base if n == side else alt, opacity=opacity)
                 previo = pv
-                opacity = max(opacity-0.20, 0.40)
+                opacity = max(opacity - 0.20, 0.40)
         return True
-

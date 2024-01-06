@@ -11,9 +11,10 @@ from PySide2 import QtCore
 
 import Code
 from Code import Util
+from Code.Base.Constantes import BOOK_BEST_MOVE, BOOK_RANDOM_UNIFORM, BOOK_RANDOM_PROPORTIONAL
 from Code.Engines import EngineResponse
 from Code.Engines import Priorities
-from Code.Polyglots import Books
+from Code.Books import Books
 from Code.QT import QTUtil2
 
 
@@ -33,9 +34,6 @@ class RunEngine:
         self.end_time_humanize = None
 
         self.name = name
-
-        self.ponder = False
-        self.pondering = False
 
         self.is_white = True
 
@@ -77,7 +75,7 @@ class RunEngine:
         self.orden_uci()
 
         txt_uci_analysismode = "UCI_AnalyseMode"
-        uci_analysismode = False
+        uci_analysismode_set = False
 
         setoptions = False
         if li_options_uci:
@@ -87,18 +85,17 @@ class RunEngine:
                 self.set_option(opcion, valor)
                 setoptions = True
                 if opcion == txt_uci_analysismode:
-                    uci_analysismode = True
-                if opcion.lower() == "ponder":
-                    self.ponder = valor == "true"
+                    uci_analysismode_set = True
 
         self.num_multipv = num_multipv
         if num_multipv:
             self.set_multipv(num_multipv)
-            if not uci_analysismode and num_multipv > 1:
+            if not uci_analysismode_set and num_multipv > 1:
                 for line in self.uci_lines:
-                    if "UCI_AnalyseMode" in line:
-                        self.set_option("UCI_AnalyseMode", "true")
+                    if txt_uci_analysismode in line:
+                        self.set_option(txt_uci_analysismode, "true")
                         setoptions = True
+                        break
         if setoptions:
             self.put_line_base("isready")
             self.wait_mrm("readyok", 1000)
@@ -118,7 +115,10 @@ class RunEngine:
             if self.log:
                 self.log.write(">>> %s\n" % line)
             self.stdin.write(line + b"\n")
-            self.stdin.flush()
+            try:
+                self.stdin.flush()
+            except:
+                pass
             self.stdin_lock.release()
 
     def put_line_base(self, line: str):
@@ -195,7 +195,7 @@ class RunEngine:
                             self.liBuffer.append("info string humanizing")
                             lock.release()
                         self.end_time_humanize = None
-                Code.prlk(self.name, line)
+                Code.pr(self.name, line)
                 lock.acquire()
                 self.liBuffer.append(line)
                 if self.direct_dispatch:
@@ -396,7 +396,7 @@ class RunEngine:
     def seek_bestmove_time(self, time_white, time_black, inc_time_move):
         env = "go wtime %d btime %d" % (time_white, time_black)
         if inc_time_move:
-            env += " winc %d" % inc_time_move
+            env += " winc %d binc %d" % (inc_time_move, inc_time_move)
         max_time = time_white if self.is_white else time_black
 
         self.reset()
@@ -460,31 +460,25 @@ class RunEngine:
         self.mrm.ordena()
         return self.mrm
 
-    def ac_minimo(self, minimoTiempo, lockAC):
+    def ac_minimo(self, minimo_tiempo, lock_ac):
         self.ac_lee()
         self.mrm.ordena()
-        rm = self.mrm.mejorMov()
-        tm = rm.time  # problema cuando da por terminada la lectura y el rm.time siempre es el mismo
-        bucle = 0
-        while rm.time < minimoTiempo and tm < minimoTiempo:
+
+        while self.mrm.time_used()*1000 < minimo_tiempo:
             time.sleep(0.1)
-            bucle += 1
-            if bucle > 1 and self.ac_lee() == 0:
-                break
-            tm += 100
-            rm = self.mrm.mejorMov()
-        self.lockAC = lockAC
+
+        self.lockAC = lock_ac
         return self.ac_estado()
 
-    def ac_minimoTD(self, minTime, minDepth, lockAC):
+    def ac_minimoTD(self, min_time, min_depth, lock_ac):
         self.ac_lee()
         self.mrm.ordena()
         rm = self.mrm.mejorMov()
-        while rm.time < minTime or rm.depth < minDepth:
+        while rm.time < min_time or rm.depth < min_depth:
             time.sleep(0.1)
             self.ac_lee()
             rm = self.mrm.mejorMov()
-        self.lockAC = lockAC
+        self.lockAC = lock_ac
         return self.ac_estado()
 
     def ac_final(self, minimo_ms_time):
@@ -576,24 +570,6 @@ class RunEngine:
         self.set_game_position(game)
         return self.seek_bestmove_time(time_white, time_black, inc_time_move)
 
-    def run_ponder(self, game, mrm):
-        posInicial = "startpos" if game.siFenInicial() else "fen %s" % game.first_position.fen()
-        li = [move.movimiento().lower() for move in game.li_moves]
-        rm = mrm.rmBest()
-        pv = rm.getPV()
-        li1 = pv.split(" ")
-        li.extend(li1[:2])
-        moves = " moves %s" % (" ".join(li)) if li else ""
-        if not li:
-            self.ucinewgame()
-        self.pondering = True
-        self.work_ok("position %s%s" % (posInicial, moves))
-        self.put_line("go ponder")
-
-    def stop_ponder(self):
-        self.work_ok("stop")
-        self.pondering = False
-
     def busca_mate(self, game, mate):
         self.ac_inicio(game)
         tm = 10000
@@ -634,7 +610,7 @@ class RunEngine:
     def play_bestmove_time(self, play_return, game, time_white, time_black, inc_time_move):
         env = "go wtime %d btime %d" % (time_white, time_black)
         if inc_time_move:
-            env += " winc %d" % inc_time_move
+            env += " winc %d binc %d" % (inc_time_move, inc_time_move)
         max_time = time_white if self.is_white else time_black
         self.play_with_return(play_return, game, env, max_time, None)
 
@@ -661,9 +637,9 @@ class MaiaEngine(RunEngine):
         mp = (level - 1100) // 10
         ap = 40 - 20 * (level - 1100) // 800
         au = 100 - mp - ap
-        self.book_select.extend(["mp"] * mp)
-        self.book_select.extend(["ap"] * ap)
-        self.book_select.extend(["au"] * au)
+        self.book_select.extend([BOOK_BEST_MOVE] * mp)
+        self.book_select.extend([BOOK_RANDOM_PROPORTIONAL] * ap)
+        self.book_select.extend([BOOK_RANDOM_UNIFORM] * au)
 
         dic_nodes = {1100: 1, 1200: 2, 1300: 5, 1400: 12, 1500: 30, 1600: 60, 1700: 130, 1800: 300, 1900: 450}
         if not Code.configuration.x_maia_nodes_exponential:
@@ -675,7 +651,7 @@ class MaiaEngine(RunEngine):
         if self.test_book(game):
             play_return(self.mrm)
             return
-        env = "go nodes %d" % self.nodes
+        env = f"go nodes {self.nodes}"
         max_time = time_white if self.is_white else time_black
         self.play_with_return(play_return, game, env, max_time, None)
 
@@ -683,20 +659,21 @@ class MaiaEngine(RunEngine):
         if self.test_book(game):
             play_return(self.mrm)
             return
-        env = "go nodes %d" % self.nodes
+        env = f"go nodes {self.nodes}"
         self.play_with_return(play_return, game, env, max_time, max_depth)
 
     def test_book(self, game):
         if len(game) < 30:
             pv = self.book.eligeJugadaTipo(game.last_position.fen(), random.choice(self.book_select))
             if pv:
-                self.mrm.dispatch("bestmove %s" % pv)
+                self.mrm.dispatch(f"bestmove {pv}")
                 self.mrm.ordena()
                 return True
         return False
 
     def work_bestmove(self, orden, msmax_time):
         self.reset()
-        orden = "go nodes %d" % self.nodes
+        orden = f"go nodes {self.nodes}"
         self.put_line(orden)
         self.wait_mrm("bestmove", msmax_time)
+

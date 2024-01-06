@@ -61,7 +61,7 @@ class PMarker(BoardTypes.Marker):
 class GTarea:
     def __init__(self, guion, tp):
         self.guion = guion
-        self._id = Util.huella()
+        self._id = Util.huella_num()
         self._tp = tp
         self._marcado = False
         self._orden = 0
@@ -203,6 +203,9 @@ class GT_Texto(GTarea):
 
     def run(self):
         self.guion.writePizarra(self)
+
+    def __str__(self):
+        return f"TEXT {self._texto}"
 
 
 class GT_Flecha(GT_Item):
@@ -589,7 +592,7 @@ class Guion:
 
     def nuevaCopia(self, ntarea):
         tarea = copy.copy(self.tarea(ntarea))
-        tarea._id = Util.huella()
+        tarea._id = Util.huella_num()
         return self.nuevaTarea(tarea, ntarea + 1)
 
     def borra(self, nTarea):
@@ -764,6 +767,8 @@ class Guion:
         if lista is not None:
             for reg in lista:
                 self.recuperaReg(reg)
+        else:
+            lista = []
 
         li_previos = self.board.lista_movibles()
         self.board.borraMovibles()
@@ -801,14 +806,19 @@ class Guion:
                 else:
                     tarea.marcado(False)
 
-    def play(self):
+    def play(self, editing=False):
         self.cerrado = False
         for tarea in self.liGTareas:
+            if editing and not tarea.marcado():
+                continue
             if not hasattr("tarea", "itemSC") or not tarea.itemSC():
                 tarea.run()
             if tarea.tp() == TP_TEXTO and tarea.continuar():
                 while self.pizarra is not None and self.pizarra.is_blocked():
                     time.sleep(0.05)
+                if self.pizarra:
+                    self.pizarra.close()
+                    self.pizarra = None
             if self.cerrado:
                 return
 

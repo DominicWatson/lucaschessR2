@@ -16,11 +16,11 @@ from Code.QT import Controles
 from Code.QT import FormLayout
 from Code.QT import Grid
 from Code.QT import Iconos
+from Code.QT import LCDialog
 from Code.QT import QTUtil2
 from Code.QT import QTVarios
 from Code.SQL import Base
 from Code.SQL import UtilSQL
-from Code.QT import LCDialog
 
 
 def lee_1_linea_mfn(linea):
@@ -505,7 +505,7 @@ class WPotenciaBase(LCDialog.LCDialog):
         mt = self.configuration.tutor_default if self.engine is None else self.engine
 
         li_combo = [mt]
-        for name, key in self.configuration.comboMotoresMultiPV10():
+        for name, key in self.configuration.combo_engines_multipv10():
             li_combo.append((key, name))
 
         li_gen.append((_("Engine") + ":", li_combo))

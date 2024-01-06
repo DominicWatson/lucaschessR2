@@ -76,7 +76,7 @@ class ManagerGame(Manager.Manager):
 
     def ask_for_save_game(self):
         if self.is_changed():
-            return QTUtil2.preguntaCancelar(self.main_window, _("Do you want to save changes?"), _("Yes"), _("No"))
+            return QTUtil2.question_withcancel(self.main_window, _("Do you want to save changes?"), _("Yes"), _("No"))
         return False
 
     def put_toolbar(self):
@@ -423,7 +423,7 @@ class ManagerGame(Manager.Manager):
     def play_rival(self):
         if not self.is_finished():
             self.thinking(True)
-            rm = self.xrival.play_game(self.game, nAjustado=self.xrival.nAjustarFuerza)
+            rm = self.xrival.play_game(self.game, adjusted=self.xrival.nAjustarFuerza)
             self.thinking(False)
             if rm.from_sq:
                 self.player_has_moved(rm.from_sq, rm.to_sq, rm.promotion)

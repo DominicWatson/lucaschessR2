@@ -18,6 +18,7 @@ from Code.Base.Constantes import (
     GT_RESISTANCE,
     GT_ELO,
     GT_MICELO,
+    GT_WICKER
 )
 
 
@@ -201,7 +202,7 @@ class ControlPGN:
             if self.manager.hints:
                 resp += '[Hints "%d"]\n' % self.manager.hints
 
-        if game_type in (GT_ELO, GT_MICELO):
+        if game_type in (GT_ELO, GT_MICELO, GT_WICKER):
             resp += '[WhiteElo "%d"]\n' % self.manager.whiteElo
             resp += '[BlackElo "%d"]\n' % self.manager.blackElo
 
@@ -215,7 +216,7 @@ class ControlPGN:
             for k, v in dmore().items():
                 resp += '[%s "%s"]\n' % (k, v)
 
-        resp += "\n" + self.manager.game.pgnBase()
+        resp += "\n" + self.manager.game.pgn_base()
         if not resp.endswith(r):
             resp += " %s" % r
 

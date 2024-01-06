@@ -34,7 +34,7 @@ import os
 
 from PySide2 import QtCore, QtGui, QtWidgets
 
-from Code import Util
+import Code
 from Code.QT import Colocacion
 from Code.QT import Controles
 from Code.QT import Iconos
@@ -93,7 +93,8 @@ class FormLayout:
         self.li_gen.append((FontCombobox(label), init_value))
 
     def file(
-        self, label, extension, siSave, init_value, siRelativo=True, anchoMinimo=None, ficheroDefecto="", li_histo=None
+            self, label, extension, siSave, init_value, siRelativo=True, anchoMinimo=None, ficheroDefecto="",
+            li_histo=None
     ):
         self.li_gen.append(
             (Fichero(label, extension, siSave, siRelativo, anchoMinimo, ficheroDefecto, li_histo), init_value)
@@ -269,7 +270,7 @@ class BotonFichero(QtWidgets.QPushButton):
         if txt:
             txt = os.path.realpath(txt)
             if self.siRelativo:
-                txt = Util.relative_path(txt)
+                txt = Code.relative_root(txt)
             tamTxt = self.qm.boundingRect(txt).width()
             tmax = self.width() - 10
             if self.siPrimeraVez:
@@ -821,7 +822,7 @@ class FormDialog(QtWidgets.QDialog):
             if dispatch:
                 dispatch(self.formwidget)  # enviamos el form de donde tomar datos cuando hay cambios
 
-        tb = QTVarios.tbAcceptCancel(self, if_default, siReject=False)
+        tb = QTVarios.tb_accept_cancel(self, if_default, with_cancel=False)
 
         layout = Colocacion.V()
         layout.control(tb)
@@ -857,7 +858,7 @@ class FormDialog(QtWidgets.QDialog):
 
 
 def fedit(
-    data, title="", comment="", icon=None, parent=None, if_default=False, anchoMinimo=None, dispatch=None, font=None
+        data, title="", comment="", icon=None, parent=None, if_default=False, anchoMinimo=None, dispatch=None, font=None
 ):
     """
     Create form dialog and return result

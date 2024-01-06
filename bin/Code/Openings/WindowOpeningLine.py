@@ -9,14 +9,16 @@ import Code
 from Code import Util
 from Code.Analysis import Analysis
 from Code.Base import Game
+from Code.Base.Constantes import BOOK_BEST_MOVE, BOOK_RANDOM_UNIFORM, BOOK_RANDOM_PROPORTIONAL
 from Code.Base.Constantes import NONE, ALL, ONLY_BLACK, ONLY_WHITE
+from Code.Books import Books, Polyglot, WBooks
 from Code.Databases import DBgames
 from Code.Engines import EnginesBunch
 from Code.Engines import Priorities
 from Code.Openings import WindowOpenings, POLAnalisis, POLBoard, OpeningLines, OpeningsStd
-from Code.Polyglots import Books
 from Code.QT import Colocacion
 from Code.QT import Columnas
+from Code.QT import Controles
 from Code.QT import Delegados
 from Code.QT import FormLayout
 from Code.QT import Grid
@@ -31,7 +33,7 @@ from Code.Voyager import Voyager
 
 class WLines(LCDialog.LCDialog):
     def __init__(self, procesador, dbop):
-        self.dbop = dbop
+        self.dbop: OpeningLines.Opening = dbop
         self.title = dbop.gettitle()
 
         LCDialog.LCDialog.__init__(self, procesador.main_window, self.title, Iconos.OpeningLines(), "studyOpening")
@@ -144,16 +146,14 @@ class WLines(LCDialog.LCDialog):
 
     def utilities(self):
         menu = QTVarios.LCMenu(self)
-        submenu = menu.submenu(_("Analysis"), Iconos.Analizar())
-        submenu.opcion(self.ta_massive, _("Mass analysis"), Iconos.Analizar())
-        submenu.separador()
-        submenu.separador()
-        submenu.opcion(self.ta_remove, _("Delete all previous analysis"), Iconos.Delete())
+        menu.opcion(self.ta_massive, _("Mass analysis"), Iconos.Analizar())
         menu.separador()
         menu.opcion(self.ta_transpositions, _("Complete with transpositions"), Iconos.Arbol())
         menu.separador()
+
         list_history = self.dbop.list_history()
         if list_history:
+            menu.separador()
             submenu = menu.submenu(_("Backups"), Iconos.Copiar())
             rondo = QTVarios.rondoPuntos()
             for history in list_history[:20]:
@@ -168,7 +168,7 @@ class WLines(LCDialog.LCDialog):
         if resp:
             if isinstance(resp, str):
                 if QTUtil2.pregunta(self, _("Are you sure you want to restore backup %s ?") % ("\n%s" % resp)):
-                    um = QTUtil2.unMomento(self, _("Working..."))
+                    um = QTUtil2.working(self)
                     self.dbop.recovering_history(resp)
                     self.refresh_lines()
                     um.final()
@@ -180,7 +180,7 @@ class WLines(LCDialog.LCDialog):
             self.dbop.remove_all_history()
 
     def ta_transpositions(self):
-        um = QTUtil2.unMomento(self, _("Working..."))
+        um = QTUtil2.working(self)
         self.dbop.transpositions()
         self.refresh_lines()
         self.glines.gotop()
@@ -194,7 +194,7 @@ class WLines(LCDialog.LCDialog):
 
         form.combobox(
             _("Engine"),
-            self.configuration.comboMotoresMultiPV10(4),
+            self.configuration.combo_engines_multipv10(4),
             dicVar.get("ENGINE", self.configuration.engine_tutor()),
         )
         form.separador()
@@ -250,7 +250,7 @@ class WLines(LCDialog.LCDialog):
         dicVar["REDO"] = redo
         self.configuration.write_variables("MASSIVE_OLINES", dicVar)
 
-        um = QTUtil2.unMomento(self)
+        um = QTUtil2.one_moment_please(self)
         st_fens_m2 = self.dbop.get_all_fen()
         stfen = set()
         for fenm2 in st_fens_m2:
@@ -280,6 +280,7 @@ class WLines(LCDialog.LCDialog):
         mensaje = _("Move") + "  %d/" + str(len(stfen))
         tmpBP = QTUtil2.BarraProgreso(self, _("Mass analysis"), "", len(stfen))
         tmpBP.setFixedWidth(450)
+        tmpBP.mostrar()
 
         for done, fenm2 in enumerate(stfen, 1):
             if tmpBP.is_canceled():
@@ -294,15 +295,6 @@ class WLines(LCDialog.LCDialog):
             self.dbop.setfenvalue(fenm2, dic)
 
         tmpBP.cerrar()
-
-    def ta_remove(self):
-        if QTUtil2.pregunta(self, _("Are you sure?")):
-            total = len(self.dbop.db_fenvalues)
-            mensaje = _("Move") + "  %d/" + str(total)
-            tmpBP = QTUtil2.BarraProgreso(self, "", "", total)
-            self.dbop.remove_analysis(tmpBP, mensaje)
-            tmpBP.cerrar()
-            self.glines.refresh()
 
     def train(self):
         menu = QTVarios.LCMenu(self)
@@ -445,7 +437,7 @@ class WLines(LCDialog.LCDialog):
         li_gen.append((config, key_engine))
         li_gen.append(separador)
 
-        config = FormLayout.Combobox(_("Engine that does the control"), self.configuration.comboMotores())
+        config = FormLayout.Combobox(_("Engine that does the control"), self.configuration.combo_engines())
         li_gen.append((config, engine_control))
         li_gen.append((_("Duration of analysis (secs)") + ":", float(engine_time)))
 
@@ -471,15 +463,13 @@ class WLines(LCDialog.LCDialog):
 
         liLevels = [separador]
         list_books = Books.ListBooks()
-        list_books.restore_pickle(self.configuration.file_books)
-        list_books.verify()
         libooks = [(bookx.name, bookx) for bookx in list_books.lista]
         libooks.insert(0, ("--", None))
         li_books_sel = (
             ("", ""),
-            (_("Uniform random"), "au"),
-            (_("Proportional random"), "ap"),
-            (_("Always the highest percentage"), "mp"),
+            (_("Uniform random"), BOOK_RANDOM_UNIFORM),
+            (_("Proportional random"), BOOK_RANDOM_PROPORTIONAL),
+            (_("Always the highest percentage"), BOOK_BEST_MOVE),
         )
         for level in range(5):
             n = level + 1
@@ -597,10 +587,10 @@ class WLines(LCDialog.LCDialog):
 
         def haz_menu(frommenu, game_base, all=True):
             if all:
-                liOp = self.dbop.getOtras(self.configuration, game_base)
-                if liOp:
+                li_op = self.dbop.getOtras(self.configuration, game_base)
+                if li_op:
                     otra = frommenu.submenu(_("Other opening lines"), Iconos.OpeningLines())
-                    for file, titulo in liOp:
+                    for file, titulo in li_op:
                         otra.opcion(("ol", (file, game_base)), titulo, Iconos.PuntoVerde())
                     frommenu.separador()
             frommenu.opcion(("pgn", game_base), _("PGN with variations"), Iconos.Board())
@@ -608,6 +598,8 @@ class WLines(LCDialog.LCDialog):
             frommenu.opcion(("polyglot", game_base), _("Polyglot book"), Iconos.Libros())
             frommenu.separador()
             frommenu.opcion(("summary", game_base), _("Database opening explorer"), Iconos.Database())
+            frommenu.separador()
+
             if all:
                 frommenu.separador()
                 frommenu.opcion(("voyager2", game_base), _("Voyager 2"), Iconos.Voyager())
@@ -628,6 +620,12 @@ class WLines(LCDialog.LCDialog):
         else:
             haz_menu(menu, self.gamebase)
 
+        menu.separador()
+        comments_import = menu.submenu(_("Comments"), Iconos.Comment())
+        comments_import.opcion(("comments", self.ta_import_pgn_comments), _("PGN with variations"), Iconos.Board())
+        comments_import.separador()
+        comments_import.opcion(("comments", self.ta_import_other_comments), _("Other opening lines"), Iconos.OpeningLines())
+
         resp = menu.lanza()
         if resp is None:
             return
@@ -644,14 +642,18 @@ class WLines(LCDialog.LCDialog):
             self.importarOpening(game)
         elif tipo == "ol":
             file, game = game
-            self.importarOtra(file, game)
+            self.import_other(file, game)
+        elif tipo == "comments":
+            rutina = game
+            rutina()
+            return
         self.dbop.clean()
         self.show_lines()
 
-    def importarOtra(self, file, game):
-        um = QTUtil2.unMomento(self)
+    def import_other(self, file, game):
+        um = QTUtil2.one_moment_please(self)
         pathFichero = os.path.join(self.configuration.folder_openings(), file)
-        self.dbop.importarOtra(pathFichero, game)
+        self.dbop.import_other(pathFichero, game)
         um.final()
         self.glines.refresh()
         self.glines.gotop()
@@ -684,7 +686,7 @@ class WLines(LCDialog.LCDialog):
         form.combobox(_("Moves"), li, dicData.get("SIWHITE", True))
         form.separador()
 
-        li = [(_("Only one best movement"), True), (_("All best movements"), False)]
+        li = [(_("Only one best move"), True), (_("All best moves"), False)]
         form.combobox(_("Best move"), li, dicData.get("ONLYONE", True))
         form.separador()
 
@@ -731,56 +733,59 @@ class WLines(LCDialog.LCDialog):
                 self.glines.gotop()
 
     def import_polyglot(self, game):
-        list_books = Books.ListBooks()
-        list_books.restore_pickle(self.configuration.file_books)
-        list_books.verify()
+        w = WImportPolyglot(self, game)
+        if w.exec_():
+            self.glines.refresh()
+            self.glines.gotop()
 
-        dicData = self.dbop.getconfig("IMPORT_POLYGLOT")
-        bookW = list_books.lista[0]
-        bookB = list_books.lista[0]
-        if dicData:
-            book = list_books.seek_book(dicData["BOOKW"])
-            if book:
-                bookW = book
-            book = list_books.seek_book(dicData["BOOKB"])
-            if book:
-                bookB = book
-
-        form = FormLayout.FormLayout(self, _("Polyglot book"), Iconos.Libros(), anchoMinimo=360)
-        form.separador()
-
-        li = [(bookx.name, bookx) for bookx in list_books.lista]
-        form.combobox(_("Book for White"), li, bookW)
-        form.separador()
-
-        form.combobox(_("Book for Black"), li, bookB)
-        form.separador()
-
-        resultado = form.run()
-        if resultado:
-            accion, liResp = resultado
-            bookW, bookB = liResp
-            dicData = {"BOOKW": bookW.name, "BOOKB": bookB.name}
-            self.dbop.setconfig("IMPORT_POLYGLOT", dicData)
-        else:
-            return
-
-        bookW.polyglot()
-        bookB.polyglot()
-
-        titulo = bookW.name if bookW == bookB else "%s/%s" % (bookW.name, bookB.name)
-        dicData = self.import_param_books(titulo, True)
-        if dicData:
-            depth, siWhite, onlyone, minMoves, excl_transpositions = (
-                dicData["DEPTH"],
-                dicData["SIWHITE"],
-                dicData["ONLYONE"],
-                dicData["MINMOVES"],
-                dicData["EXCLTRANSPOSITIONS"],
-            )
-            self.dbop.import_polyglot(
-                self, game, bookW, bookB, titulo, depth, siWhite, onlyone, minMoves, excl_transpositions
-            )
+            # list_books = Books.ListBooks()
+            #
+            # dicData = self.dbop.getconfig("IMPORT_POLYGLOT")
+            # bookW = list_books.lista[0]
+            # bookB = list_books.lista[0]
+            # if dicData:
+            #     book = list_books.seek_book(dicData["BOOKW"])
+            #     if book:
+            #         bookW = book
+            #     book = list_books.seek_book(dicData["BOOKB"])
+            #     if book:
+            #         bookB = book
+            #
+            # form = FormLayout.FormLayout(self, _("Polyglot book"), Iconos.Libros(), anchoMinimo=360)
+            # form.separador()
+            #
+            # li = [(bookx.name, bookx) for bookx in list_books.lista]
+            # form.combobox(_("Book for White"), li, bookW)
+            # form.separador()
+            #
+            # form.combobox(_("Book for Black"), li, bookB)
+            # form.separador()
+            #
+            # resultado = form.run()
+            # if resultado:
+            #     accion, liResp = resultado
+            #     bookW, bookB = liResp
+            #     dicData = {"BOOKW": bookW.name, "BOOKB": bookB.name}
+            #     self.dbop.setconfig("IMPORT_POLYGLOT", dicData)
+            # else:
+            #     return
+            #
+            # bookW.polyglot()
+            # bookB.polyglot()
+            #
+            # titulo = bookW.name if bookW == bookB else "%s/%s" % (bookW.name, bookB.name)
+            # dicData = self.import_param_books(titulo, True)
+            # if dicData:
+            #     depth, siWhite, onlyone, minMoves, excl_transpositions = (
+            #         dicData["DEPTH"],
+            #         dicData["SIWHITE"],
+            #         dicData["ONLYONE"],
+            #         dicData["MINMOVES"],
+            #         dicData["EXCLTRANSPOSITIONS"],
+            #     )
+            #     self.dbop.import_polyglot(
+            #         self, game, bookW, bookB, titulo, depth, siWhite, onlyone, minMoves, excl_transpositions
+            #     )
             self.glines.refresh()
             self.glines.gotop()
 
@@ -820,6 +825,33 @@ class WLines(LCDialog.LCDialog):
             self.dbop.import_pgn(self, game, fichero_pgn, depth, variations, comments)
             self.glines.refresh()
             self.glines.gotop()
+
+    def ta_import_pgn_comments(self):
+        key_var = "OPENINGLINES"
+        dic_var = self.configuration.read_variables(key_var)
+        carpeta = dic_var.get("CARPETAPGN", "")
+
+        fichero_pgn = SelectFiles.leeFichero(self, carpeta, "pgn", titulo=_("File to import"))
+        if not fichero_pgn:
+            return
+        dic_var["CARPETAPGN"] = os.path.dirname(fichero_pgn)
+        self.configuration.write_variables(key_var, dic_var)
+
+        self.dbop.import_pgn_comments(self, fichero_pgn)
+        self.glines.refresh()
+        self.glines.gotop()
+
+    def ta_import_other_comments(self):
+        current_path = self.dbop.nom_fichero
+
+        file_opk = SelectFiles.leeFichero(self, os.path.dirname(current_path), "opk", titulo=_("Opening lines"))
+        if not file_opk or Util.same_path(current_path, file_opk):
+            return
+
+        self.dbop.import_other_comments(file_opk)
+
+        self.glines.refresh()
+        self.glines.gotop()
 
     def grid_color_fondo(self, grid, row, o_column):
         col = o_column.key
@@ -946,7 +978,7 @@ class WLines(LCDialog.LCDialog):
                 mrm = dic["ANALISIS"]
                 move.analysis = mrm, 0
             else:
-                me = QTUtil2.mensEspera.start(self, _("Analyzing the move...."), physical_pos="ad")
+                me = QTUtil2.waiting_message.start(self, _("Analyzing the move...."), physical_pos="ad")
 
                 move.analysis = xanalyzer.analizaJugadaPartida(
                     game, len(game) - 1, xanalyzer.mstime_engine, xanalyzer.depth_engine, window=self
@@ -1009,6 +1041,9 @@ class WLines(LCDialog.LCDialog):
         submenu.opcion("last_white", _("White"), Iconos.Blancas())
         submenu.separador()
         submenu.opcion("last_black", _("Black"), Iconos.Negras())
+        menu.separador()
+
+        menu.opcion("info", _("Remove comments/ratings/analysis"), Iconos.Delete())
 
         resp = menu.lanza()
 
@@ -1049,7 +1084,7 @@ class WLines(LCDialog.LCDialog):
                         sli.append(cad)
                     cli = "\n".join(sli)
                     if QTUtil2.pregunta(self, _("Do you want to remove the next lines?") + "\n\n" + cli):
-                        um = QTUtil2.unMomento(self, _("Working..."))
+                        um = QTUtil2.working(self)
                         self.dbop.remove_list_lines([x - 1 for x in li], cli)
                         self.glines.refresh()
                         self.goto_inilinea()
@@ -1062,48 +1097,67 @@ class WLines(LCDialog.LCDialog):
             self.remove_lastmove(True)
         elif resp == "last_black":
             self.remove_lastmove(False)
+        elif resp == "info":
+            self.remove_info()
         self.show_lines()
 
     def remove_lastmove(self, iswhite):
-        um = QTUtil2.unMomento(self, _("Working..."))
+        um = QTUtil2.working(self)
         self.dbop.remove_lastmove(
             iswhite, "%s %s" % (_("Remove last move if the line ends with"), _("White") if iswhite else _("Black"))
         )
         um.final()
 
     def remove_worst(self):
+        key = "REMOVEWORSTLINES"
+        dic_data = Code.configuration.read_variables(key)
+
         form = FormLayout.FormLayout(self, _("Remove worst lines"), Iconos.OpeningLines())
         form.separador()
         liJ = [(_("White"), "WHITE"), (_("Black"), "BLACK")]
-        form.combobox(_("Side"), liJ, "WHITE")
+        form.combobox(_("Side"), liJ, "WHITE" if self.pboard.board.is_white_bottom else "BLACK")
         form.separador()
 
         list_books = Books.ListBooks()
-        list_books.restore_pickle(self.configuration.file_books)
-        list_books.verify()
         libooks = [(bookx.name, bookx) for bookx in list_books.lista]
         libooks.insert(0, ("--", None))
-        form.combobox(_("Book"), libooks, None)
+
+        book_name = dic_data.get("BOOK_NAME", None)
+        book_selected = None
+        for name, book in libooks:
+            if name == book_name:
+                book_selected = book
+                break
+
+        form.combobox(_("Book"), libooks, book_selected)
         form.separador()
 
         tm = float(self.configuration.x_tutor_mstime / 1000.0)
-        form.float(_("Duration of engine analysis (secs)"), tm if tm > 0.0 else 3.0)
+
+        form.float(_("Duration of engine analysis (secs)"), dic_data.get("SECS", tm if tm > 0.0 else 3.0))
         form.separador()
 
         resultado = form.run()
         if resultado:
-            um = QTUtil2.unMomento(self, _("Working..."))
+            um = QTUtil2.working(self)
             color, book, segs = resultado[1]
             ms = int(segs * 1000)
             if ms < 0.01:
                 return
             if book:
                 book.polyglot()
+
+            dic_data["SECS"] = segs
+            dic_data["BOOK_NAME"] = book.name if book else None
+            Code.configuration.write_variables(key, dic_data)
+
             si_white = color == "WHITE"
             dic = self.dbop.dicRepeFen(si_white)
             mensaje = _("Move") + "  %d/" + str(len(dic))
             xmanager = self.procesador.creaManagerMotor(self.configuration.engine_tutor(), ms, 0, siMultiPV=False)
-            xmanager.set_multipv(20)
+            xmanager.set_multipv(10)
+
+
 
             st_borrar = set()
 
@@ -1141,7 +1195,7 @@ class WLines(LCDialog.LCDialog):
                     mrm = xmanager.analiza(fen)
                     for a1h8 in dic_a1h8:
                         rm, pos = mrm.buscaRM(a1h8)
-                        li.append((a1h8, pos if pos>= 0 else 999))
+                        li.append((a1h8, pos if pos >= 0 else 999))
                     li.sort(key=lambda x: x[1])
 
                 for a1h8, pos in li[1:]:
@@ -1165,7 +1219,7 @@ class WLines(LCDialog.LCDialog):
                 self.goto_inilinea()
 
     def remove_opening(self):
-        me = QTUtil2.unMomento(self)
+        me = QTUtil2.one_moment_please(self)
         op = OpeningsStd.Opening("")
         op.a1h8 = self.dbop.basePV
         w = WindowOpenings.WOpenings(self, self.configuration, op)
@@ -1176,11 +1230,38 @@ class WLines(LCDialog.LCDialog):
 
     def remove_pv(self, pgn, a1h8):
         if QTUtil2.pregunta(self, _("Do you want to remove all lines beginning with %s?").replace("%s", pgn)):
-            um = QTUtil2.unMomento(self, _("Working..."))
+            um = QTUtil2.working(self)
             self.dbop.remove_pv(pgn, a1h8)
             self.refresh_lines()
             self.goto_inilinea()
             um.final()
+
+    def remove_info(self):
+        form = FormLayout.FormLayout(self, _("Remove"), Iconos.Delete(), font_txt=Controles.TipoLetra(puntos=10))
+
+        form.separador()
+        form.checkbox(_("All"), False)
+        form.separador()
+
+        form.checkbox(_("Comments"), False)
+        form.checkbox(_("Ratings"), False)
+        form.checkbox(_("Analysis"), False)
+
+        resultado = form.run()
+
+        if resultado:
+            accion, li_resp = resultado
+            is_all, is_comments, is_ratings, is_analysis = li_resp
+            if is_all:
+                is_comments = is_ratings = is_analysis = True
+            if is_comments or is_ratings or is_analysis:
+                QTUtil.refresh_gui()
+                um = QTUtil2.working(self)
+                self.tabsanalisis.tabengine.current_mrm = None
+                self.dbop.remove_info(is_comments, is_ratings, is_analysis)
+                self.refresh_lines()
+                self.glines.gotop()
+                um.final()
 
     def goto_inilinea(self):
         nlines = len(self.dbop)
@@ -1255,7 +1336,6 @@ class WLines(LCDialog.LCDialog):
         board.dbVisual.saveMoviblesBoard(board)
         self.dbop.setconfig("WHITEBOTTOM", board.is_white_bottom)
         self.tabsanalisis.saveConfig()
-        self.dbop.close()
         self.save_video()
         self.procesador.stop_engines()
 
@@ -1300,3 +1380,167 @@ def study(procesador, file):
         w.exec_()
         dbop.close()
         return w.resultado
+
+
+class WImportPolyglot(LCDialog.LCDialog):
+    def __init__(self, w_parent, game):
+        titulo = _("Polyglot book")
+        icono = Iconos.Book()
+        self.dbop: OpeningLines.Opening = w_parent.dbop
+
+        LCDialog.LCDialog.__init__(self, w_parent, titulo, icono, "ol_import_polyglot")
+
+        self.list_books = Books.ListBooks()
+        self.game = game
+        dic_data = self.read_dic_data()
+
+        flb = Controles.TipoLetra(puntos=10)
+
+        # Toolbar
+        tb = QTVarios.LCTB(self)
+        tb.new(_("Accept"), Iconos.Aceptar(), self.aceptar)
+        tb.new(_("Cancel"), Iconos.Cancelar(), self.cancelar)
+        tb.new(_("Books"), Iconos.Book(), self.register_books)
+
+        # Books
+        li_books = [(x.name, x) for x in self.list_books.lista]
+        li_modes = [(name, key) for key, name in Polyglot.dic_modes().items()]
+
+        def book_obj(key):
+            dic_book: dict = dic_data.get(key)
+            if dic_book:
+                path = dic_book["path"]
+                for name, book in li_books:
+                    if path == book.path:
+                        return book
+            return None
+
+        self.cb_white = Controles.CB(self, li_books, book_obj("BOOK_WHITE"))
+        self.cb_mode_white = Controles.CB(self, li_modes, dic_data.get("MODE_WHITE"))
+
+        lybook = Colocacion.H().relleno().control(self.cb_white).control(self.cb_mode_white).relleno()
+
+        gb_white = Controles.GB(self, _("White book"), lybook).ponFuente(flb)
+
+        # Black
+        self.cb_black = Controles.CB(self, li_books, book_obj("BOOK_BLACK"))
+        self.cb_mode_black = Controles.CB(self, li_modes, dic_data.get("MODE_BLACK"))
+
+        lybook = Colocacion.H().relleno().control(self.cb_black).control(self.cb_mode_black).relleno()
+
+        gb_black = Controles.GB(self, _("Black book"), lybook).ponFuente(flb)
+
+        layout_books = Colocacion.H().control(gb_white).control(gb_black)
+
+        # Limits
+        lb_limit_depth = Controles.LB2P(self, _("Max depth"))
+        self.sb_limit_depth = Controles.SB(self, dic_data.get("MAX_DEPTH", 0), 0, 999)
+        lb_limit_lines = Controles.LB2P(self, _("Max lines to parse"))
+        self.sb_limit_lines = Controles.SB(self, dic_data.get("MAX_LINES", 0), 0, 99999)
+        ly = Colocacion.G()
+        ly.controld(lb_limit_depth, 0, 0)
+        ly.control(self.sb_limit_depth, 0, 1)
+        ly.controld(lb_limit_lines, 0, 2)
+        ly.control(self.sb_limit_lines, 0, 3)
+
+        no_limits = _("0=no limit")
+
+        lb_info1 = Controles.LB(self, no_limits).ponTipoLetra(puntos=8)
+        lb_info2 = Controles.LB(self, no_limits).ponTipoLetra(puntos=8)
+        ly.control(lb_info1, 1, 1)
+        ly.control(lb_info2, 1, 3)
+
+        gb_limits = Controles.GB(self, _("Limits"), ly).ponFuente(flb)
+
+        for gb in (gb_white, gb_black, gb_limits):
+            Code.configuration.set_property(gb, "1")
+
+        vlayout = Colocacion.V()
+        vlayout.otro(layout_books).espacio(15)
+        vlayout.control(gb_limits)
+        vlayout.margen(30)
+
+        layout = Colocacion.V().control(tb).otro(vlayout).margen(3)
+
+        self.setLayout(layout)
+
+        self.restore_video()
+
+    @staticmethod
+    def read_dic_data():
+        return Code.configuration.read_variables("OL_IMPORTPOLYGLOT")
+
+    def write_dic_data(self):
+        dic = {
+            "BOOK_WHITE": self.cb_white.valor().to_dic(),
+            "MODE_WHITE": self.cb_mode_white.valor(),
+            "BOOK_BLACK": self.cb_black.valor().to_dic(),
+            "MODE_BLACK": self.cb_mode_black.valor(),
+            "MAX_DEPTH": self.sb_limit_depth.valor(),
+            "MAX_LINES": self.sb_limit_depth.valor()
+        }
+        Code.configuration.write_variables("OL_IMPORTPOLYGLOT", dic)
+
+    def aceptar(self):
+        self.write_dic_data()
+        if self.gen_lines():
+            self.save_video()
+            self.accept()
+
+    def cancelar(self):
+        self.save_video()
+        self.reject()
+
+    def register_books(self):
+        WBooks.registered_books(self)
+        self.list_books = Books.ListBooks()
+        self.list_books.save()
+        li = [(x.name, x) for x in self.list_books.lista]
+        self.cb_white.rehacer(li, self.cb_white.valor())
+        self.cb_black.rehacer(li, self.cb_black.valor())
+
+    def gen_lines(self):
+        book_w: Books.Book = self.cb_white.valor()
+        book_b: Books.Book = self.cb_black.valor()
+        mode_w = self.cb_mode_white.valor()
+        mode_b = self.cb_mode_black.valor()
+        limit_lines = self.sb_limit_lines.valor()
+        limit_depth = self.sb_limit_depth.valor()
+        start_fen = self.game.last_position.fen()
+
+        mens_work = _("Working...")
+        mens_depth = _("Depth")
+        mens_lines = _("Lines")
+        um = QTUtil2.waiting_message.start(self, mens_work, if_cancel=True)
+        um.end_with_canceled = False
+
+        def dispatch(xdepth, xlines):
+            if xlines:
+                um.label(f"{mens_work}<br>{mens_depth}: {xdepth:d}<br>{mens_lines}: {xlines:d}")
+            if um.cancelado():
+                um.end_with_canceled = True
+                return False
+            return True
+
+        lines = Polyglot.gen_lines(book_w.path, book_b.path, mode_w, mode_b,
+                                   limit_lines, limit_depth, start_fen, dispatch)
+        um.final()
+
+        if um.end_with_canceled:
+            return False
+
+        if len(lines) == 0:
+            QTUtil2.message_error(self, _("There is no lines"))
+            return False
+
+        um = QTUtil2.working(self)
+        pv_init = self.game.pv()
+        if pv_init:
+            pv_init += " "
+
+        li_pv = [pv_init + str(line) for line in lines]
+        self.dbop.import_polyglot(li_pv)
+
+        um.final()
+
+        return True
